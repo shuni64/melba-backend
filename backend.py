@@ -60,7 +60,7 @@ async def tts_loop():
     while True:
         message = await tts_queue.get()
         response = await fetch_tts(message.response_text)
-        if response != None:
+        if response is not None:
             message.audio_segment = response
             await speech_queue.put(message)
 
@@ -81,7 +81,7 @@ class Toaster:
         print("Toaster connected")
         self._websocket_clients.append(websocket)
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(.5) # surely nothing will go wrong if i set it to 0.5 :clueless:
         print("Websocket handler exited")
 
     async def _send_message(self, message):
@@ -92,7 +92,7 @@ class Toaster:
                 print("Toaster connection closed")
                 self._websocket_clients.remove(websocket)
 
-    async def speak_audio(self, audio_segment):
+    async def speak_audio(self, audio_segment): # TODO: maybe somehow pass the speech without using files?
         mp3_file = io.BytesIO()
         audio_segment.export(mp3_file, format="mp3")
         await self._send_message(mp3_file.getvalue())
@@ -112,7 +112,7 @@ async def add_message(message: str):
 
 async def main():
     toaster = Toaster()
-    twitch_chat = twitch.TwitchChat("<channel>", onmessage = add_message)
+    twitch_chat = twitch.Chat("<channel>", onmessage = add_message)
     async with asyncio.TaskGroup() as tg:
         tg.create_task(toaster.listen())
         tg.create_task(llm_loop())
