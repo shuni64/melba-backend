@@ -14,6 +14,7 @@ import asyncio
 from dataclasses import dataclass, field
 import traceback
 
+import config
 import twitch
 
 @dataclass
@@ -35,7 +36,7 @@ class ChatSpeechEvent(SpeechEvent):
 async def fetch_llm(prompt):
     start = time.time()
     async with aiohttp.ClientSession() as session:
-        async with session.post("https://melba.shuni.moe/generate_response", json = {"message": prompt, "prompt_setting": 0,"person": "Chat"}) as response:
+        async with session.post(config.llm_url, json = {"message": prompt, "prompt_setting": 0,"person": "Chat"}) as response:
             end = time.time()
             if response.status == 200:
                 print("LLM time:", end - start)
@@ -68,7 +69,7 @@ async def llm_loop():
 async def fetch_tts(text):
     start = time.time()
     async with aiohttp.ClientSession() as session:
-        async with session.post("https://melba-tts.zuzu.red/synthesize", data = {"text": text, "voice": "voice2", "speed": 1.2, "pitch": 10}) as response:
+        async with session.post(config.tts_url, data = {"text": text, "voice": "voice2", "speed": 1.2, "pitch": 10}) as response:
             end = time.time()
             print("TTS time:", end - start)
             try:
@@ -143,7 +144,7 @@ async def add_message(message: str):
 
 async def main():
     toaster = Toaster()
-    twitch_chat = twitch.Chat("<channel>", onmessage = add_message)
+    twitch_chat = twitch.Chat(config.channel, onmessage = add_message)
     async with asyncio.TaskGroup() as tg:
         tg.create_task(toaster.listen())
         tg.create_task(llm_loop())
