@@ -10,20 +10,23 @@ import websockets
 from asyncio.queues import Queue, PriorityQueue
 from pydub import AudioSegment
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import twitch
 
 @dataclass
 class SpeechEvent:
-    response_text: str
-    audio_segment: str
+    response_text: str = field(default = None, compare = False)
+    audio_segment: AudioSegment = field(default = None, compare = False)
     pass
 
-@dataclass
-class ChatSpeechEvent:
-    user_message: str
+@dataclass(init = False, order = True)
+class ChatSpeechEvent(SpeechEvent):
+    priority: int = 0
+    user_message: str = field(default = None, compare = False)
     def __init__(self, user_message):
+        self.response_text = None
+        self.audio_segment = None
         self.user_message = user_message
     pass
 
