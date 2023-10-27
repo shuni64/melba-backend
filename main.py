@@ -68,7 +68,7 @@ async def llm_loop():
 async def fetch_tts(text):
     start = time.time()
     async with aiohttp.ClientSession() as session:
-        async with session.post("https://melba-tts.zuzu.red/synthesize", data = {'text': text, 'voice': 'voice1'}) as response:
+        async with session.post("https://melba-tts.zuzu.red/synthesize", data = {"text": text, "voice": "voice2", "speed": 1.2, "pitch": 10}) as response:
             end = time.time()
             print("TTS time:", end - start)
             try:
