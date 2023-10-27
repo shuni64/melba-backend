@@ -4,13 +4,15 @@ import json
 import time
 import wave
 import io
-import requests
+import aiohttp
 import logging
 import websockets
 from asyncio.queues import Queue, PriorityQueue
 from pydub import AudioSegment
+import pydub
 import asyncio
 from dataclasses import dataclass, field
+import traceback
 
 import twitch
 
@@ -32,13 +34,14 @@ class ChatSpeechEvent(SpeechEvent):
 
 async def fetch_llm(prompt):
     start = time.time()
-    response = requests.post("https://melba.shuni.moe/generate_response", json = {"message": prompt, "prompt_setting": 0,"person": "Chat"})
-    end = time.time()
-    if response.status_code == 200:
-        print("LLM time:", end - start)
-        return response.json()["response_text"]
-    else:
-        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.post("https://melba.shuni.moe/generate_response", json = {"message": prompt, "prompt_setting": 0,"person": "Chat"}) as response:
+            end = time.time()
+            if response.status == 200:
+                print("LLM time:", end - start)
+                return (await response.json())["response_text"]
+            else:
+                return None
 
 chat_messages = PriorityQueue(maxsize=10)
 tts_queue = Queue(maxsize=5)
@@ -47,28 +50,48 @@ speech_queue = Queue(maxsize=5)
 async def llm_loop():
     while True:
         message = await chat_messages.get()
-        response = await fetch_llm(message.user_message)
+        try:
+            response = await fetch_llm(message.user_message)
+        except:
+            print("Exception during LLM fetch:")
+            print(traceback.format_exc())
+            response = None
         if response is not None:
             try:
                 message.response_text = response
                 await tts_queue.put(message)
             except asyncio.QueueFull:
                 print("TTS queue full, dropping message: " + message.response_text)
+        else:
+            print("LLM failed for message:", message)
 
 async def fetch_tts(text):
     start = time.time()
-    response = requests.post("https://melba-tts.zuzu.red/synthesize", data = {'text': text, 'voice': 'voice1'})
-    end = time.time()
-    print("TTS time:", end - start)
-    return AudioSegment.from_file(io.BytesIO(response.content))
+    async with aiohttp.ClientSession() as session:
+        async with session.post("https://melba-tts.zuzu.red/synthesize", data = {'text': text, 'voice': 'voice1'}) as response:
+            end = time.time()
+            print("TTS time:", end - start)
+            try:
+                return AudioSegment.from_file(io.BytesIO(await response.read()))
+            except pydub.exceptions.CouldntDecodeError:
+                with open("failed_tts_output", "wb") as binary_file:
+                    binary_file.write(await response.read())
+                return None
 
 async def tts_loop():
     while True:
         message = await tts_queue.get()
-        response = await fetch_tts(message.response_text)
+        try:
+            response = await fetch_tts(message.response_text)
+        except:
+            print("Exception during TTS fetch:")
+            print(traceback.format_exc())
+            response = None
         if response is not None:
             message.audio_segment = response
             await speech_queue.put(message)
+        else:
+            print("TTS failed for message:", message)
 
 # Connection to Melba Toaster
 class Toaster:
