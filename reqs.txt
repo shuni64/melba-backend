@@ -1,0 +1,4 @@
+pydub==0.25.1
+Requests==2.31.0
+twitchio==2.8.2
+websockets==12.0

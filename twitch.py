@@ -1,6 +1,6 @@
 from twitchio import Client
 
-class TwitchChat():
+class Chat():
     def __init__(self, channel, onmessage):
         self._channel = channel
         self.onmessage = onmessage
