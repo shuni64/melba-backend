@@ -45,9 +45,12 @@ async def llm_loop():
     while True:
         message = await chat_messages.get()
         response = await fetch_llm(message.user_message)
-        if response != None:
-            message.response_text = response
-            await tts_queue.put(message)
+        if response is not None:
+            try:
+                message.response_text = response
+                await tts_queue.put(message)
+            except asyncio.QueueFull:
+                print("TTS queue full, dropping message: " + message.response_text)
 
 async def fetch_tts(text):
     start = time.time()
@@ -73,9 +76,11 @@ class Toaster:
         self.void = False
 
     async def listen(self):
-        async with websockets.server.serve(self._websocket_handler, host = "127.0.0.1", port = 9876) as server:
-            await server.serve_forever()
-        print("Websocket listener exited")
+        try:
+            async with websockets.server.serve(self._websocket_handler, host = "127.0.0.1", port = 9876) as server:
+                await server.serve_forever()
+        except asyncio.CancelledError:
+            print("Cancelled!")
 
     async def _websocket_handler(self, websocket):
         print("Toaster connected")
