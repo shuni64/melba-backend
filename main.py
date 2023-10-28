@@ -57,6 +57,8 @@ async def llm_loop():
         message = await chat_messages.get()
         try:
             response = await fetch_llm(message.user_message, message.user_name)
+        except asyncio.CancelledError as e:
+            raise e
         except:
             print("Exception during LLM fetch:")
             print(traceback.format_exc())
@@ -88,6 +90,8 @@ async def tts_loop():
         message = await tts_queue.get()
         try:
             response = await fetch_tts(message.response_text)
+        except asyncio.CancelledError as e:
+            raise e
         except:
             print("Exception during TTS fetch:")
             print(traceback.format_exc())
@@ -107,11 +111,8 @@ class Toaster:
         self.void = False
 
     async def listen(self):
-        try:
-            async with websockets.server.serve(self._websocket_handler, host = "127.0.0.1", port = 9876) as server:
-                await server.serve_forever()
-        except asyncio.CancelledError:
-            print("Cancelled!")
+        async with websockets.server.serve(self._websocket_handler, host = "127.0.0.1", port = 9876) as server:
+            await server.serve_forever()
 
     async def _websocket_handler(self, websocket):
         print("Toaster connected")
@@ -146,6 +147,8 @@ async def speech_loop(toaster):
             delay = random.randrange(3.0, 7.0)
             print(f"Speech delay: {delay}s")
             await asyncio.sleep(delay)
+        except asyncio.CancelledError as e:
+            raise e
         except:
             print("Exception during speech:")
             print(traceback.format_exc())
