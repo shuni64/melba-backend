@@ -154,7 +154,6 @@ async def speech_loop(toaster):
             print(traceback.format_exc())
 
 async def add_message(message: str, user: str):
-    print("Chat message:", message)
     await chat_messages.put(ChatSpeechEvent(message, user))
     pass
 
