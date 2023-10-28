@@ -129,10 +129,16 @@ class Toaster:
                 print("Toaster connection closed")
                 self._websocket_clients.remove(client)
 
-    async def speak_audio(self, audio_segment): # TODO: maybe somehow pass the speech without using files?
+    async def speak_audio(self, audio_segment, prompt, text):
         mp3_file = io.BytesIO()
         audio_segment.export(mp3_file, format="mp3")
         await self._send_message(mp3_file.getvalue())
+        new_speech = {
+                "type": "NewSpeech",
+                "prompt": prompt,
+                "text": text,
+        }
+        await self._send_message(json.dumps(new_speech))
         print("Duration:", audio_segment.duration_seconds)
         await asyncio.sleep(audio_segment.duration_seconds)
 
@@ -142,11 +148,9 @@ async def speech_loop(toaster):
             speech_event = await speech_queue.get()
             print("Speaking: " + speech_event.response_text)
             print("Responding to: " + speech_event.user_message)
-            await toaster.speak_audio(speech_event.audio_segment)
+            await toaster.speak_audio(speech_event.audio_segment, speech_event.user_message, speech_event.response_text)
             print("Done speaking")
-            delay = random.randrange(3.0, 7.0)
-            print(f"Speech delay: {delay}s")
-            await asyncio.sleep(delay)
+            await asyncio.sleep(3.0)
         except asyncio.CancelledError as e:
             raise e
         except:
