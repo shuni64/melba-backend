@@ -14,6 +14,7 @@ import pydub
 import asyncio
 from dataclasses import dataclass, field
 import traceback
+import random
 
 import config
 import twitch
@@ -131,14 +132,23 @@ class Toaster:
         mp3_file = io.BytesIO()
         audio_segment.export(mp3_file, format="mp3")
         await self._send_message(mp3_file.getvalue())
+        print("Duration:", audio_segment.duration_seconds)
+        await asyncio.sleep(audio_segment.duration_seconds)
 
 async def speech_loop(toaster):
     while True:
-        speech_event = await speech_queue.get()
-        print("Speaking: " + speech_event.response_text)
-        print("Responding to: " + speech_event.user_message)
-        await toaster.speak_audio(speech_event.audio_segment)
-        print("Done speaking")
+        try:
+            speech_event = await speech_queue.get()
+            print("Speaking: " + speech_event.response_text)
+            print("Responding to: " + speech_event.user_message)
+            await toaster.speak_audio(speech_event.audio_segment)
+            print("Done speaking")
+            delay = random.randrange(3.0, 7.0)
+            print(f"Speech delay: {delay}s")
+            await asyncio.sleep(delay)
+        except:
+            print("Exception during speech:")
+            print(traceback.format_exc())
 
 async def add_message(message: str, user: str):
     print("Chat message:", message)
