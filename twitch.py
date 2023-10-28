@@ -13,5 +13,5 @@ class Chat():
         print("Twitch chat connected")
 
     async def _onmessage(self, message):
-        await self.onmessage(message.content)
+        await self.onmessage(message.content, message.author.name)
 

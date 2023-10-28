@@ -28,16 +28,18 @@ class SpeechEvent:
 class ChatSpeechEvent(SpeechEvent):
     priority: int = 0
     user_message: str = field(default = None, compare = False)
-    def __init__(self, user_message):
+    user_name: str = field(default = None, compare = False)
+    def __init__(self, user_message, user_name):
         self.response_text = None
         self.audio_segment = None
         self.user_message = user_message
+        self.user_name = user_name
     pass
 
-async def fetch_llm(prompt):
+async def fetch_llm(prompt, person):
     start = time.time()
     async with aiohttp.ClientSession() as session:
-        async with session.post(config.llm_url, json = {"message": prompt, "prompt_setting": 0,"person": "Chat"}) as response:
+        async with session.post(config.llm_url, json = {"message": prompt, "prompt_setting": "generic", "person": person}) as response:
             end = time.time()
             if response.status == 200:
                 print("LLM time:", end - start)
@@ -53,7 +55,7 @@ async def llm_loop():
     while True:
         message = await chat_messages.get()
         try:
-            response = await fetch_llm(message.user_message)
+            response = await fetch_llm(message.user_message, message.user_name)
         except:
             print("Exception during LLM fetch:")
             print(traceback.format_exc())
@@ -138,9 +140,9 @@ async def speech_loop(toaster):
         await toaster.speak_audio(speech_event.audio_segment)
         print("Done speaking")
 
-async def add_message(message: str):
+async def add_message(message: str, user: str):
     print("Chat message:", message)
-    await chat_messages.put(ChatSpeechEvent(message))
+    await chat_messages.put(ChatSpeechEvent(message, user))
     pass
 
 async def main():
