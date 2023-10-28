@@ -37,26 +37,64 @@ class ChatSpeechEvent(SpeechEvent):
         self.user_name = user_name
     pass
 
-async def fetch_llm(prompt, person):
-    start = time.time()
-    async with aiohttp.ClientSession() as session:
-        async with session.post(config.llm_url, json = {"message": prompt, "prompt_setting": "generic", "person": person}) as response:
-            end = time.time()
-            if response.status == 200:
-                print(f"LLM time: {end - start}s")
-                return (await response.json())["response_text"]
-            else:
-                return None
+# Connection to the LLM
+class LLM:
+    def __init__(self):
+        self._websocket_client = None
+
+    async def listen(self):
+        async with websockets.server.serve(self._websocket_handler, host = "127.0.0.1", port = 9877) as server:
+            await server.serve_forever()
+
+    async def _websocket_handler(self, websocket):
+        if self._websocket_client is None:
+            print("LLM connected")
+            self._websocket_client = websocket
+            await websocket.wait_closed()
+            print("LLM Websocket handler exited")
+            self._websocket_client = None
+        else:
+            print("LLM already connected, connection rejected")
+
+    async def _recv_message(self):
+        if self._websocket_client is None:
+            raise Exception("LLM not connected")
+        try:
+            return await self._websocket_client.recv()
+        except ConnectionClosed:
+            print("LLM connection closed")
+            self._websocket_client = None
+
+    async def _send_message(self, message):
+        if self._websocket_client is None:
+            raise Exception("LLM not connected")
+        try:
+            await self._websocket_client.send(message)
+        except ConnectionClosed:
+            print("LLM connection closed")
+            self._websocket_client = None
+
+    async def generate_response(self, prompt, person):
+        start = time.time()
+        if self._websocket_client is None:
+            raise Exception("LLM not connected")
+        request = {"message": prompt, "prompt_setting": "generic", "person": person}
+        await self._send_message(json.dumps(request))
+        llm_response_text = await self._recv_message()
+        end = time.time()
+        print(f"LLM time: {end - start}s")
+        return json.loads(llm_response_text)["response_text"]
+
 
 chat_messages = PriorityQueue(maxsize=10)
 tts_queue = Queue(maxsize=5)
 speech_queue = Queue(maxsize=5)
 
-async def llm_loop():
+async def llm_loop(llm):
     while True:
         message = await chat_messages.get()
         try:
-            response = await fetch_llm(message.user_message, message.user_name)
+            response = await llm.generate_response(message.user_message, message.user_name)
         except asyncio.CancelledError as e:
             raise e
         except:
@@ -163,10 +201,12 @@ async def add_message(message: str, user: str):
 
 async def main():
     toaster = Toaster()
+    llm = LLM()
     twitch_chat = twitch.Chat(config.channel, onmessage = add_message)
     async with asyncio.TaskGroup() as tg:
         tg.create_task(toaster.listen())
-        tg.create_task(llm_loop())
+        tg.create_task(llm.listen())
+        tg.create_task(llm_loop(llm))
         tg.create_task(tts_loop())
         tg.create_task(speech_loop(toaster))
         tg.create_task(twitch_chat.connect())
