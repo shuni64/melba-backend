@@ -43,7 +43,7 @@ async def fetch_llm(prompt, person):
         async with session.post(config.llm_url, json = {"message": prompt, "prompt_setting": "generic", "person": person}) as response:
             end = time.time()
             if response.status == 200:
-                print("LLM time:", end - start)
+                print(f"LLM time: {end - start}s")
                 return (await response.json())["response_text"]
             else:
                 return None
@@ -75,7 +75,7 @@ async def fetch_tts(text):
     async with aiohttp.ClientSession() as session:
         async with session.post(config.tts_url, data = {"text": text, "voice": "voice2", "speed": 1.2, "pitch": 10}) as response:
             end = time.time()
-            print("TTS time:", end - start)
+            print(f"TTS time: {end - start}s")
             try:
                 return AudioSegment.from_file(io.BytesIO(await response.read()))
             except pydub.exceptions.CouldntDecodeError:
@@ -126,7 +126,7 @@ class Toaster:
                 await client.send(message)
             except ConnectionClosed:
                 print("Toaster connection closed")
-                self._websocket_clients.remove(websocket)
+                self._websocket_clients.remove(client)
 
     async def speak_audio(self, audio_segment): # TODO: maybe somehow pass the speech without using files?
         mp3_file = io.BytesIO()
